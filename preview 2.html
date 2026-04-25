@@ -8,7 +8,7 @@
 <style>
   body {
     margin: 0;
-    background: #f7f7f8;
+    background: #dff2ff;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     overflow: hidden;
   }
@@ -70,9 +70,30 @@ class Bubble {
     this.vy = -1.2 - Math.random();
 
     this.phase = Math.random() * Math.PI * 2;
+    this.createdAt = performance.now();
+    this.lifeMs = 30000;
+    this.popDurationMs = 700;
+    this.isPopping = false;
+    this.popStartAt = null;
+    this.dead = false;
   }
 
   update() {
+    const now = performance.now();
+
+    if (!this.isPopping && now - this.createdAt >= this.lifeMs) {
+      this.isPopping = true;
+      this.popStartAt = now;
+    }
+
+    if (this.isPopping) {
+      const popProgress = (now - this.popStartAt) / this.popDurationMs;
+      if (popProgress >= 1) {
+        this.dead = true;
+      }
+      return;
+    }
+
     // 떠오르는 힘
     this.vy -= 0.004;
 
@@ -110,6 +131,25 @@ class Bubble {
     const w = this.width;
     const h = this.height;
 
+    const now = performance.now();
+    let scale = 1;
+    let alpha = 1;
+
+    if (this.isPopping) {
+      const t = Math.min((now - this.popStartAt) / this.popDurationMs, 1);
+      const explodeEase = 1 - Math.pow(1 - t, 3);
+      scale = 1 + explodeEase * 0.55;
+      alpha = 1 - explodeEase;
+    }
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
+    ctx.translate(-cx, -cy);
+
     ctx.beginPath();
 
     // rounded rect
@@ -143,6 +183,7 @@ class Bubble {
     ctx.font = "14px sans-serif";
     ctx.textBaseline = "middle";
     ctx.fillText(this.text, x + 16, y + h / 2);
+    ctx.restore();
   }
 }
 
@@ -176,6 +217,7 @@ function animate() {
 
   handleCollisions();
 
+  bubbles = bubbles.filter(b => !b.dead);
   bubbles.forEach(b => {
     b.update();
     b.draw();
